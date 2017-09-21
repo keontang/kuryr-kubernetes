@@ -34,6 +34,7 @@ class NeutronPodVIFDriver(base.PodVIFDriver):
 
         rq = self._get_port_request(pod, project_id, subnets, security_groups)
         port = neutron.create_port(rq).get('port')
+        # for example: vif_plugin is ovs
         vif_plugin = self._get_vif_plugin(port)
 
         return ovu.neutron_to_osvif_vif(vif_plugin, port, subnets)
@@ -92,6 +93,8 @@ class NeutronPodVIFDriver(base.PodVIFDriver):
 
     def _get_port_request(self, pod, project_id, subnets, security_groups,
                           unbound=False):
+        # kuryr/kuryr/lib/constants.py
+        # DEVICE_OWNER = 'compute:kuryr'
         port_req_body = {'project_id': project_id,
                          'name': self._get_port_name(pod),
                          'network_id': self._get_network_id(subnets),

@@ -37,21 +37,46 @@ class VIFHandler(k8s_base.ResourceEventHandler):
     annotation.
     """
 
+    # VIFHandler 处理 Pod event
     OBJECT_KIND = constants.K8S_OBJ_POD
 
     def __init__(self):
+        # setup.cfg:
+        # [entry_points]
+        # kuryr_kubernetes.controller.drivers.pod_project =
+        #     default = kuryr_kubernetes.controller.drivers.default_project:DefaultPodProjectDriver
         self._drv_project = drivers.PodProjectDriver.get_instance()
+        # [entry_points]
+        # kuryr_kubernetes.controller.drivers.pod_subnets =
+        #     default = kuryr_kubernetes.controller.drivers.default_subnet:DefaultPodSubnetDriver
         self._drv_subnets = drivers.PodSubnetsDriver.get_instance()
+        # [entry_points]
+        # kuryr_kubernetes.controller.drivers.pod_security_groups =
+        #     default = kuryr_kubernetes.controller.drivers.default_security_groups:DefaultPodSecurityGroupsDriver
         self._drv_sg = drivers.PodSecurityGroupsDriver.get_instance()
+        # [entry_points]
+        # kuryr_kubernetes.controller.drivers.pod_vif =
+        #     neutron-vif = kuryr_kubernetes.controller.drivers.neutron_vif:NeutronPodVIFDriver
+        #     nested-vlan = kuryr_kubernetes.controller.drivers.nested_vlan_vif:NestedVlanPodVIFDriver
+        #     nested-macvlan = kuryr_kubernetes.controller.drivers.nested_macvlan_vif:NestedMacvlanPodVIFDriver
         self._drv_vif = drivers.PodVIFDriver.get_instance()
         # REVISIT(ltomasbo): The VIF Handler should not be aware of the pool
         # directly. Due to the lack of a mechanism to load and set the
         # VIFHandler driver, for now it is aware of the pool driver, but this
         # will be reverted as soon as a mechanism is in place.
+        #
+        #
+        # [entry_points]
+        # kuryr_kubernetes.controller.drivers.vif_pool =
+        #     noop = kuryr_kubernetes.controller.drivers.vif_pool:NoopVIFPool
+        #     neutron = kuryr_kubernetes.controller.drivers.vif_pool:NeutronVIFPool
+        #     nested = kuryr_kubernetes.controller.drivers.vif_pool:NestedVIFPool
         self._drv_vif_pool = drivers.VIFPoolDriver.get_instance()
         self._drv_vif_pool.set_vif_driver(self._drv_vif)
 
     def on_present(self, pod):
+        # Make sure Pod don't use hostNetwork
+        # Checks if Pod is in PENDGING status and has node assigned.
         if self._is_host_network(pod) or not self._is_pending_node(pod):
             # REVISIT(ivc): consider an additional configurable check that
             # would allow skipping pods to enable heterogeneous environments

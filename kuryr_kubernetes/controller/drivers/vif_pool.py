@@ -98,18 +98,39 @@ class BaseVIFPool(base.VIFPoolDriver):
     - ports_pool_update_frequency: interval in seconds between ports pool
     updates, both for populating pools as well as for recycling ports.
     """
+
+    # pool_key --> list of port_id
+    # deque: 双端队列
     _available_ports_pools = collections.defaultdict(collections.deque)
+    # port_id --> vif object
     _existing_vifs = collections.defaultdict(collections.defaultdict)
+    # port_id --> pool_key
     _recyclable_ports = collections.defaultdict(collections.defaultdict)
+    # pool_key --> timestamp
     _last_update = collections.defaultdict(collections.defaultdict)
 
     def __init__(self):
         # Note(ltomasbo) Execute the port recycling periodic actions in a
         # background thread
+        #
+        # Eventlet is a concurrent networking library for Python that allows
+        # you to change how you run your code.
+        # It uses epoll or libevent for highly scalable non-blocking I/O.
+        #
+        # 后台线程周期性执行已经被释放的 port 的回收
+        # 从 _recyclable_ports 字典中取出 port, 执行如下选择:
+        #   1. pool 未满, 将该 port 添加到 _available_ports_pools
+        #   2. pool 已满, 直接调用 neutron client 删除 port
         eventlet.spawn(self._return_ports_to_pool)
         # Note(ltomasbo) Delete or recover previously pre-created ports
+        # 每次初始化 BaseVIFPool 的时候都会执行一次 _recover_precreated_ports
+        # 将之前未释放给 neutron 的残留的 port 释放给 neutron
+        # 因为这些 port 已经不在 _available_ports_pools 中
+        # 刚初始化时 _available_ports_pools 是空的
         eventlet.spawn(self._recover_precreated_ports)
 
+    # driver 主要干如下事情:
+    # Manages normal Neutron ports to provide VIFs for Kubernetes Pods
     def set_vif_driver(self, driver):
         self._drv_vif = driver
 
@@ -183,6 +204,13 @@ class NeutronVIFPool(BaseVIFPool):
         except IndexError:
             raise exceptions.ResourceNotReady(pod)
         neutron = clients.get_neutron_client()
+        # python-neutronclient/neutronclient/v2_0/client.py
+        # class Client(ClientBase):
+        #     def update_port(self, port, body=None):
+        #         """Updates a port."""
+        #         return self.put(self.port_path % (port), body=body)
+        #
+        # 因为从 port pool 取出来重新利用的 port, 需要更新 port 信息
         neutron.update_port(
             port_id,
             {
@@ -194,13 +222,16 @@ class NeutronVIFPool(BaseVIFPool):
         # check if the pool needs to be populated
         if (self._get_pool_size(pool_key) <
                 oslo_cfg.CONF.vif_pool.ports_pool_min):
+            # eventlet.spawn(func, *args, **kw)
+            #   该函数创建一个使用参数 *args 和 **kw 调用函数 func 的绿色线程，
+            #   多次孵化绿色线程会并行地执行任务。
             eventlet.spawn(self._populate_pool, pool_key, pod, subnets)
         return self._existing_vifs[port_id]
 
     def _return_ports_to_pool(self):
         """Recycle ports to be reused by future pods.
 
-        For each port in the recyclable_ports dict it reaplies
+        For each port in the recyclable_ports dict it reapplies
         security group and changes the port name to available_port.
         Upon successful port update, the port_id is included in the dict
         with the available_ports.
@@ -250,6 +281,8 @@ class NeutronVIFPool(BaseVIFPool):
 
     def _cleanup_precreated_ports(self):
         neutron = clients.get_neutron_client()
+        # kuryr/kuryr/lib/constants.py
+        # DEVICE_OWNER = 'compute:kuryr'
         available_ports = self._get_ports_by_attrs(
             name='available-port', device_owner=kl_const.DEVICE_OWNER)
         for port in available_ports:

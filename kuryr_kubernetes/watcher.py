@@ -71,7 +71,9 @@ class Watcher(object):
         self._running = False
 
         self._resources = set()
+        # self._watching[path] means: path is watching in default thread or another thread based on thread group
         self._watching = {}
+        # self._idle[path] means: path is handling or not
         self._idle = {}
 
     def add(self, path):

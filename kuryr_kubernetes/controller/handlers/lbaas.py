@@ -27,6 +27,99 @@ from kuryr_kubernetes.objects import lbaas as obj_lbaas
 LOG = logging.getLogger(__name__)
 
 
+# [root@computer1 ~]# kubectl get svc nginx-service  -o yaml
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   annotations:
+#     openstack.org/kuryr-lbaas-spec: '{"versioned_object.data": {"ip": "10.20.79.53",
+#       "ports": [{"versioned_object.data": {"name": null, "port": 82, "protocol": "TCP"},
+#       "versioned_object.name": "LBaaSPortSpec", "versioned_object.namespace": "kuryr_kubernetes",
+#       "versioned_object.version": "1.0"}], "project_id": "22acf7eff1e246ffba05639c235ee958",
+#       "security_groups_ids": ["0cc213ea-d286-4a9f-aa3a-c629e49ea807"], "subnet_id":
+#       "5fb9bf5e-06aa-419e-88bd-15bca4b0f564"}, "versioned_object.name": "LBaaSServiceSpec",
+#       "versioned_object.namespace": "kuryr_kubernetes", "versioned_object.version":
+#       "1.0"}'
+#   creationTimestamp: 2017-08-25T08:27:33Z
+#   labels:
+#     name: nginx-service
+#   name: nginx-service
+#   namespace: default
+#   resourceVersion: "359595"
+#   selfLink: /api/v1/namespaces/default/services/nginx-service
+#   uid: 3e609f14-896f-11e7-a2a1-ac1f6b1274fa
+# spec:
+#   clusterIP: 10.20.79.53
+#   ports:
+#   - port: 82
+#     protocol: TCP
+#     targetPort: 80
+#   selector:
+#     app: nginx
+#   sessionAffinity: None
+#   type: ClusterIP
+# status:
+#   loadBalancer: {}
+
+
+# [root@computer1 ~]# kubectl get ep nginx-service -o yaml
+# apiVersion: v1
+# kind: Endpoints
+# metadata:
+#   annotations:
+#     openstack.org/kuryr-lbaas-spec: '{"versioned_object.data": {"ip": "10.20.79.53",
+#       "ports": [{"versioned_object.data": {"name": null, "port": 82, "protocol": "TCP"},
+#       "versioned_object.name": "LBaaSPortSpec", "versioned_object.namespace": "kuryr_kubernetes",
+#       "versioned_object.version": "1.0"}], "project_id": "22acf7eff1e246ffba05639c235ee958",
+#       "security_groups_ids": ["0cc213ea-d286-4a9f-aa3a-c629e49ea807"], "subnet_id":
+#       "5fb9bf5e-06aa-419e-88bd-15bca4b0f564"}, "versioned_object.name": "LBaaSServiceSpec",
+#       "versioned_object.namespace": "kuryr_kubernetes", "versioned_object.version":
+#       "1.0"}'
+#     openstack.org/kuryr-lbaas-state: '{"versioned_object.data": {"listeners": [{"versioned_object.data":
+#       {"id": "c8ec2bb3-662b-4558-b835-b8398b3c650c", "loadbalancer_id": "bbb7464e-6a6a-46da-b383-82af1a9affc4",
+#       "name": "default/nginx-service:TCP:82", "port": 82, "project_id": "22acf7eff1e246ffba05639c235ee958",
+#       "protocol": "TCP"}, "versioned_object.name": "LBaaSListener", "versioned_object.namespace":
+#       "kuryr_kubernetes", "versioned_object.version": "1.0"}], "loadbalancer": {"versioned_object.data":
+#       {"id": "bbb7464e-6a6a-46da-b383-82af1a9affc4", "ip": "10.20.79.53", "name":
+#       "default/nginx-service", "project_id": "22acf7eff1e246ffba05639c235ee958", "subnet_id":
+#       "5fb9bf5e-06aa-419e-88bd-15bca4b0f564"}, "versioned_object.name": "LBaaSLoadBalancer",
+#       "versioned_object.namespace": "kuryr_kubernetes", "versioned_object.version":
+#       "1.0"}, "members": [{"versioned_object.data": {"id": "60238fb2-dd0a-4ae2-919c-fde1e1745a25",
+#       "ip": "10.10.1.11", "name": "default/nginx-1x49s:80", "pool_id": "8a3451f3-85d4-48bc-b892-62d27b8a590f",
+#       "port": 80, "project_id": "22acf7eff1e246ffba05639c235ee958", "subnet_id": "5fb9bf5e-06aa-419e-88bd-15bca4b0f564"},
+#       "versioned_object.name": "LBaaSMember", "versioned_object.namespace": "kuryr_kubernetes",
+#       "versioned_object.version": "1.0"}], "pools": [{"versioned_object.data": {"id":
+#       "8a3451f3-85d4-48bc-b892-62d27b8a590f", "listener_id": "c8ec2bb3-662b-4558-b835-b8398b3c650c",
+#       "loadbalancer_id": "bbb7464e-6a6a-46da-b383-82af1a9affc4", "name": "default/nginx-service:TCP:82",
+#       "project_id": "22acf7eff1e246ffba05639c235ee958", "protocol": "TCP"}, "versioned_object.name":
+#       "LBaaSPool", "versioned_object.namespace": "kuryr_kubernetes", "versioned_object.version":
+#       "1.0"}]}, "versioned_object.name": "LBaaSState", "versioned_object.namespace":
+#       "kuryr_kubernetes", "versioned_object.version": "1.0"}'
+#   creationTimestamp: 2017-08-25T08:27:33Z
+#   labels:
+#     name: nginx-service
+#   name: nginx-service
+#   namespace: default
+#   resourceVersion: "933638"
+#   selfLink: /api/v1/namespaces/default/endpoints/nginx-service
+#   uid: 3e6434f4-896f-11e7-a2a1-ac1f6b1274fa
+# subsets:
+# - addresses:
+#   - ip: 10.10.1.11
+#     nodeName: computer2
+#     targetRef:
+#       kind: Pod
+#       name: nginx-1x49s
+#       namespace: default
+#       resourceVersion: "933636"
+#       uid: 458d0618-8dee-11e7-a2a1-ac1f6b1274fa
+#   ports:
+#   - port: 80
+#     protocol: TCP
+
+
+# LBaaSSpecHandler 负责管理 lbaas spec
+# watch k8s service, 为 k8s service 和 endpoint object 打上 annotation
 class LBaaSSpecHandler(k8s_base.ResourceEventHandler):
     """LBaaSSpecHandler handles K8s Service events.
 
@@ -34,6 +127,7 @@ class LBaaSSpecHandler(k8s_base.ResourceEventHandler):
     with LBaaSServiceSpec when necessary.
     """
 
+    # watch k8s service
     OBJECT_KIND = k_const.K8S_OBJ_SERVICE
 
     def __init__(self):
@@ -160,21 +254,29 @@ class LBaaSSpecHandler(k8s_base.ResourceEventHandler):
             LOG.debug("Removing LBaaSServiceSpec annotation: %r", lbaas_spec)
             annotation = None
         else:
+            # Call obj_reset_changes(recursive=True) on
+            # any sub-objects within the list of fields being reset.
             lbaas_spec.obj_reset_changes(recursive=True)
             LOG.debug("Setting LBaaSServiceSpec annotation: %r", lbaas_spec)
             annotation = jsonutils.dumps(lbaas_spec.obj_to_primitive(),
                                          sort_keys=True)
         svc_link = service['metadata']['selfLink']
+        # change
+        #     selfLink: /api/v1/namespaces/default/services/nginx-service
+        # to
+        #     selfLink: /api/v1/namespaces/default/endpoints/nginx-service
         ep_link = self._get_endpoints_link(service)
         k8s = clients.get_kubernetes_client()
 
         try:
+            # 为 k8s endpoint 打上 lbaas_spec annotation
             k8s.annotate(ep_link,
                          {k_const.K8S_ANNOTATION_LBAAS_SPEC: annotation})
         except k_exc.K8sClientException:
             # REVISIT(ivc): only raise ResourceNotReady for NotFound
             raise k_exc.ResourceNotReady(ep_link)
 
+        # 为 k8s service 打上 lbaas_spec annotation
         k8s.annotate(svc_link,
                      {k_const.K8S_ANNOTATION_LBAAS_SPEC: annotation},
                      resource_version=service['metadata']['resourceVersion'])
@@ -191,7 +293,8 @@ class LBaaSSpecHandler(k8s_base.ResourceEventHandler):
         LOG.debug("Got LBaaSServiceSpec from annotation: %r", obj)
         return obj
 
-
+# watch k8s endpoint, 根据 endpoint annotation 信息
+# 创建对应的 lbaas 资源: loadbalancer, listener, pool, member
 class LoadBalancerHandler(k8s_base.ResourceEventHandler):
     """LoadBalancerHandler handles K8s Endpoints events.
 
@@ -200,6 +303,7 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
     actual state in LBaaSState.
     """
 
+    # watch k8s endpoint
     OBJECT_KIND = k_const.K8S_OBJ_ENDPOINTS
 
     def __init__(self):
@@ -480,6 +584,7 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
             annotation = jsonutils.dumps(lbaas_state.obj_to_primitive(),
                                          sort_keys=True)
         k8s = clients.get_kubernetes_client()
+        # 为 k8s endpoint 打上 lbaas-state annotation
         k8s.annotate(endpoints['metadata']['selfLink'],
                      {k_const.K8S_ANNOTATION_LBAAS_STATE: annotation},
                      resource_version=endpoints['metadata']['resourceVersion'])

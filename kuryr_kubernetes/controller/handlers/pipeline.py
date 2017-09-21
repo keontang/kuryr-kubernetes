@@ -52,11 +52,15 @@ class ControllerPipeline(h_dis.EventPipeline):
         self._tg = thread_group
         super(ControllerPipeline, self).__init__()
 
+    # 对 consumer 进行了封装, ControllerPipeline 通过 LogExceptions 封装了 Retry consumer
+    # Retry 封装了 VIFHandler, LBaaSSpecHandler 和 LoadBalancerHandler 这三个 consumer
     def _wrap_consumer(self, consumer):
         # TODO(ivc): tune retry interval/timeout
         return h_log.LogExceptions(h_retry.Retry(
             consumer, exceptions=exceptions.ResourceNotReady))
 
+    # 对 dispacher 进行了封装, ControllerPipeline 通过 LogExceptions 封装了 Async dispatcher
+    # Async 封装了 Dispacher
     def _wrap_dispatcher(self, dispatcher):
         return h_log.LogExceptions(h_async.Async(dispatcher, self._tg,
                                                  h_k8s.object_link))

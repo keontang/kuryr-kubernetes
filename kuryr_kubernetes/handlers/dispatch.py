@@ -48,6 +48,17 @@ class Dispatcher(h_base.EventHandler):
         :param handler: `callable` object that would be called if the
                         conditions specified by `key_fn` and `key` are met
         """
+        # dict.setdefault(key, default=None)
+        #   如果键不存在于字典中, 将会添加键并将值设为默认值
+        #   返回值:
+        #     如果字典中包含有给定键, 则返回该键对应的值, 否则返回为该键设置的值.
+        #
+        # example:
+        #   key_fn: {
+        #       Pod: [xx_podHandler, yy_podHandler],
+        #       Endpoint: [xx_epHandler, yy_epHandler],
+        #       Service: [xx_svcHandler, yy_svcHandler]
+        # }
         key_group = self._registry.setdefault(key_fn, {})
         handlers = key_group.setdefault(key, [])
         handlers.append(handler)
@@ -57,6 +68,8 @@ class Dispatcher(h_base.EventHandler):
 
         for key_fn, key_group in self._registry.items():
             key = key_fn(event)
+            # dict.get(key, default=None)
+            #   函数返回指定键的值, 如果值不在字典中返回默认值
             handlers.update(key_group.get(key, ()))
 
         LOG.debug("%s handler(s) available", len(handlers))

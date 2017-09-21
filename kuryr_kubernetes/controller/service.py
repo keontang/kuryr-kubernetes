@@ -43,8 +43,11 @@ class KuryrK8sService(service.Service):
         # TODO(ivc): pluggable resource/handler registration
         for resource in ["pods", "services", "endpoints"]:
             self.watcher.add("%s/%s" % (constants.K8S_API_BASE, resource))
+        # pod event handler
         pipeline.register(h_vif.VIFHandler())
+        # service event handler
         pipeline.register(h_lbaas.LBaaSSpecHandler())
+        # endpoint event handler
         pipeline.register(h_lbaas.LoadBalancerHandler())
 
     def start(self):
@@ -68,5 +71,7 @@ def start():
     config.setup_logging()
     clients.setup_clients()
     os_vif.initialize()
+    # 以线程方式启动服务
     kuryrk8s_launcher = service.launch(config.CONF, KuryrK8sService())
+    # 等待服务结束
     kuryrk8s_launcher.wait()

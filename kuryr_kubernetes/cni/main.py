@@ -58,11 +58,58 @@ class K8sCNIPlugin(cni_api.CNIPlugin):
         except AttributeError:
             pass
 
+        # 解析 cni 命令行参数
         config.init(args)
         config.setup_logging()
+
+        # github.com/openstack/os_vif/os_vif/__init__.py
+        #
+        # def initialize(reset=False):
+        #     """
+        #     Loads all os_vif plugins and initializes them with a dictionary of
+        #     configuration options. These configuration options are passed as-is
+        #     to the individual VIF plugins that are loaded via stevedore.
+        #     :param reset: Recreate and load the VIF plugin extensions.
+        #     """
+        #     global _EXT_MANAGER
+        #     if _EXT_MANAGER is None:
+        #         os_vif.objects.register_all()
+        # 
+        #     if reset or (_EXT_MANAGER is None):
+        #         _EXT_MANAGER = extension.ExtensionManager(namespace='os_vif',
+        #                                             invoke_on_load=False)
+        #         loaded_plugins = []
+        #         for plugin_name in _EXT_MANAGER.names():
+        #             cls = _EXT_MANAGER[plugin_name].plugin
+        #             obj = cls.load(plugin_name)
+        #             LOG.debug(("Loaded VIF plugin class '%(cls)s' "
+        #                        "with name '%(plugin_name)s'"),
+        #                       {'cls': cls, 'plugin_name': plugin_name})
+        #             loaded_plugins.append(plugin_name)
+        #             _EXT_MANAGER[plugin_name].obj = obj
+        #         LOG.info("Loaded VIF plugins: %s", ", ".join(loaded_plugins))
+        #
+        #
+        # stevedore 基于 setuptools entry point, 提供 python 应用程序管理插件的功能.
+        # os_vif 正式利用 stevedore 加载多个 plugin.
+        #
+        # 我们看 github.com/openstack/kuryr-kubernetes/setup.cfg:
+        #     [entry_points]
+        #     os_vif =
+        #         noop = kuryr_kubernetes.os_vif_plug_noop:NoOpPlugin
+        #
+        # 然后 github.com/openstack/os-vif/setup.cfg:
+        #     [entry_points]
+        #     os_vif =
+        #         linux_bridge = vif_plug_linux_bridge.linux_bridge:LinuxBridgePlugin
+        #         ovs = vif_plug_ovs.ovs:OvsPlugin
+        #
+        #
         os_vif.initialize()
         clients.setup_kubernetes_client()
+        # _pipeline 对象: 对 Event 事件进行分发到对应的 consumer 去处理
         self._pipeline = h_cni.CNIPipeline()
+        # _watcher 对象: Observes K8s resources' events using K8s '?watch=true' API
         self._watcher = k_watcher.Watcher(self._pipeline)
         self._watcher.add(
             "%(base)s/namespaces/%(namespace)s/pods"
@@ -90,7 +137,10 @@ def run():
         LOG.debug('timed out')
         sys.exit(1)
 
+    # singnal.signal(signalnum, handler)
+    #     signalnum 为某个信号, handler 为该信号的处理函数
     signal.signal(signal.SIGALRM, _timeout)
+    # 在 signal.alarm() 执行 _CNI_TIMEOUT 秒之后，进程将向自己发出 SIGALRM 信号
     signal.alarm(_CNI_TIMEOUT)
     status = runner.run(os.environ, sys.stdin, sys.stdout)
     LOG.debug("Exiting with status %s", status)

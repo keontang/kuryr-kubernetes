@@ -100,6 +100,11 @@ class K8sClient(object):
                     "resourceVersion": resource_version,
                 }
             }, sort_keys=True)
+            # POST 方法用来创建一个子资源，如 /api/users, 会在 users 下面创建一个 user, 如 users/1
+            # POST 方法不是幂等的, 多次执行, 将导致多条相同的用户被创建 (users/1, users/2 ... 而这些用户除了自增长 id 外有着相同的数据, 除非你的系统实现了额外的数据唯一性检查)
+            # 而 PUT 方法用来创建一个 URI 已知的资源, 或对已知资源进行完全替换, 比如 users/1
+            # 因此 PUT 方法一般会用来更新一个已知资源, 除非在创建前, 你完全知道自己要创建的对象的 URI
+            # PATCH 方法是新引入的, 是对 PUT 方法的补充, 用来对已知资源进行局部更新
             response = requests.patch(url, data=data,
                                       headers=header, cert=self.cert,
                                       verify=self.verify_server)
@@ -123,7 +128,28 @@ class K8sClient(object):
                                         'names': retrieved_annotations})
             raise exc.K8sClientException(response.text)
 
+    # 由于 yield 关键字, watch 变成一个生成器
     def watch(self, path):
+        # Watch API 实际上一个标准的 HTTP GET 请求, 我们以 Pod 的 Watch API 为例
+        #     HTTP Request
+        #         GET /api/v1/watch/namespaces/{namespace}/pods
+        #
+        #       Path Parameters:
+        #         namespace: object name and auth scope
+        #
+        #       Query Parameters:
+        #         fieldSelector: A selector to restrict the list of returned
+        #             objects by their fields. Defaults to everything.
+        #         labelSelector: A selector to restrict the list of returned
+        #             objects by their labels. Defaults to everything.
+        #         pretty: If ‘true’, then the output is pretty printed.
+        #         resourceVersion: When specified with a watch call, shows
+        #             changes that occur after that particular version of a
+        #             resource.
+        #         timeoutSeconds: Timeout for the list/watch call.
+        #         watch: Watch for changes to the described resources and
+        #             return them as a stream of add, update, and remove
+        #             notifications.
         params = {'watch': 'true'}
         url = self._base_url + path
         header = {}
@@ -138,7 +164,20 @@ class K8sClient(object):
                                  headers=header)) as response:
                 if not response.ok:
                     raise exc.K8sClientException(response.text)
+                # refer to: kubernetes/pkg/apiserver/watch.go: ServeHTTP()
+                # // Event represents a single event to a watched resource.
+                # type Event struct {
+                #     Type EventType
+                # 
+                #     // Object is:
+                #     //  * If Type is Added or Modified: the new state of the object.
+                #     //  * If Type is Deleted: the state of the object immediately before deletion.
+                #     //  * If Type is Error: *api.Status is recommended; other types may make sense
+                #     //    depending on context.
+                #     Object runtime.Object
+                # }
                 for line in response.iter_lines(delimiter='\n'):
                     line = line.strip()
                     if line:
+                        # jsonutils.loads() return a python dict
                         yield jsonutils.loads(line)

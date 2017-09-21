@@ -29,6 +29,10 @@ DEFAULT_GRACE_PERIOD = 5
 STALE_PERIOD = 0.5
 
 
+# 封装 Dispatcher
+# 通过 group_by fucn 使得不同的 object 位于不同的 group, 每个 group 用于一个独立的队列
+# 不同的 group, Async 会创建不同的线程, 用 Dispatcher 对象函数 (__call__) 去分发 event
+# 相同的 group 在同一个线程中利用 Dispatcher 对象函数 (__call__) 去分发 event
 class Async(base.EventHandler):
     """Handles events asynchronously.
 
@@ -57,7 +61,22 @@ class Async(base.EventHandler):
             queue = six_queue.Queue(self._queue_depth)
             self._queues[group] = queue
             thread = self._thread_group.add_thread(self._run, group, queue)
+            # refer to:
+            #   openstack/deb-python-eventlet/eventlet/greenthread.py
+            #   openstack/cloudpulse/cloudpulse/openstack/common/threadgroup.py
+            #
+            # class GreenThread(greenlet.greenlet):
+            #   def link(self, func, *curried_args, **curried_kwargs):
+            #       """ Set up a function to be called with the results of the GreenThread.
+            #       The function must have the following signature::
+            #         def func(gt, [curried args/kwargs]):
+            #       When the GreenThread finishes its run, it calls *func* 
+            #       with itself and with the curried arguments
+            #       Note that *func* is called within execution context of
+            #       the GreenThread
+            #       """
             thread.link(self._done, group)
+        # 线程已经起来, 把 event 放入 queue, 等待线程处理
         queue.put(event)
 
     def _run(self, group, queue):
@@ -68,6 +87,7 @@ class Async(base.EventHandler):
             # avoid tests getting stuck in infinite loops)
             try:
                 event = queue.get(timeout=self._grace_period)
+            # 如果 timeout 之后 queue 还是 Empty, 那么线程就退出
             except six_queue.Empty:
                 break
             # FIXME(ivc): temporary workaround to skip stale events
@@ -96,6 +116,7 @@ class Async(base.EventHandler):
                 event = queue.get()
                 if queue.empty():
                     time.sleep(STALE_PERIOD)
+            # consumer 处理 event
             self._handler(event)
 
     def _done(self, thread, group):

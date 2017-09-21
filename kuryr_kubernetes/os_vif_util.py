@@ -223,6 +223,8 @@ def neutron_to_osvif_vif_ovs(vif_plugin, neutron_port, subnets):
     network = _make_vif_network(neutron_port, subnets)
     network.bridge = ovs_bridge
 
+    # ovs_hybrid_plug: the hybrid VIF plugging strategy, where it places
+    # a Linux Bridge in-line between the instance's tap and br-int.
     if details.get('ovs_hybrid_plug'):
         vif = osv_vif.VIFBridge(
             id=neutron_port['id'],
@@ -305,6 +307,9 @@ def neutron_to_osvif_vif(vif_translator, neutron_port, subnets):
     :return: os-vif VIF object
     """
 
+    # [entry_points]
+    # kuryr_kubernetes.vif_translators =
+    #     ovs = kuryr_kubernetes.os_vif_util:neutron_to_osvif_vif_ovs
     try:
         mgr = _VIF_MANAGERS[vif_translator]
     except KeyError:
@@ -313,6 +318,7 @@ def neutron_to_osvif_vif(vif_translator, neutron_port, subnets):
             name=vif_translator, invoke_on_load=False)
         _VIF_MANAGERS[vif_translator] = mgr
 
+    # neutron_to_osvif_vif_ovs(ovs, neutron_port, subnets)
     return mgr.driver(vif_translator, neutron_port, subnets)
 
 

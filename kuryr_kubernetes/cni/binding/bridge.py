@@ -23,9 +23,16 @@ class BaseBridgeDriver(object):
     def connect(self, vif, ifname, netns):
         host_ifname = vif.vif_name
 
+        // container ipdb
         c_ipdb = b_base.get_ipdb(netns)
+        // host ipdb
         h_ipdb = b_base.get_ipdb()
 
+        # 创建 veth pair, container 这边的 interface 为 c_iface,
+        # 其 container interface name 为参数 ifname, 默认为 eth0
+        # host interface name 为参数 host_ifname
+        #
+        # 另外, neutron 那边申请过来的 port 信息: mac, mtu 都配置给容器 interface
         with c_ipdb.create(ifname=ifname, peer=host_ifname,
                            kind='veth') as c_iface:
             c_iface.mtu = vif.network.mtu

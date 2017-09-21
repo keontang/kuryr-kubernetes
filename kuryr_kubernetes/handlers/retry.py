@@ -28,7 +28,7 @@ LOG = logging.getLogger(__name__)
 DEFAULT_TIMEOUT = 180
 DEFAULT_INTERVAL = 3
 
-
+# 封装 consumer
 class Retry(base.EventHandler):
     """Retries handler on failure.
 
@@ -56,6 +56,7 @@ class Retry(base.EventHandler):
 
     def __call__(self, event):
         deadline = time.time() + self._timeout
+        # itertools.count(1) --> 1, 2, 3, 4, ...
         for attempt in itertools.count(1):
             try:
                 self._handler(event)

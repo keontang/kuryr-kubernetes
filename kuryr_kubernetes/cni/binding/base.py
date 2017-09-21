@@ -20,7 +20,15 @@ from stevedore import driver as stv_driver
 _BINDING_NAMESPACE = 'kuryr_kubernetes.cni.binding'
 _IPDB = {}
 
-
+# setup.cfg
+#
+# [entry_points]
+# kuryr_kubernetes.cni.binding =
+#     VIFBridge = kuryr_kubernetes.cni.binding.bridge:BridgeDriver
+#     VIFOpenVSwitch = kuryr_kubernetes.cni.binding.bridge:VIFOpenVSwitchDriver
+#     VIFVlanNested = kuryr_kubernetes.cni.binding.nested:VlanDriver
+#     VIFMacvlanNested = kuryr_kubernetes.cni.binding.nested:MacvlanDriver
+#
 def _get_binding_driver(vif):
     mgr = stv_driver.DriverManager(namespace=_BINDING_NAMESPACE,
                                    name=type(vif).__name__,
@@ -55,11 +63,14 @@ def _configure_l3(vif, ifname, netns):
             routes.add(gateway=str(subnet.gateway),
                        dst='default').commit()
 
-
+# ifname 为 pod interface name
 def connect(vif, instance_info, ifname, netns=None):
     driver = _get_binding_driver(vif)
+    # openstack/os-vif/os_vif/__init__.py:plug()
     os_vif.plug(vif, instance_info)
+    # For example: VIFOpenVSwitchDriver
     driver.connect(vif, ifname, netns)
+    # 为 pod 配置 ip, netmask, route, gateway
     _configure_l3(vif, ifname, netns)
 
 

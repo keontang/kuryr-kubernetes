@@ -50,7 +50,21 @@ class CNIParameters(object):
         for k, v in env.items():
             if k.startswith('CNI_'):
                 setattr(self, k, v)
+        # cni config for kubelet, for example: etc/cni/net.d/10-kuryr.conf
         self.config = CNIConfig(cfg)
+        # CNI_ARGS: Extra arguments passed in by the user at invocation time.
+        # Alphanumeric key-value pairs separated by semicolons;
+        # for example, "FOO=BAR;ABC=123"
+        #
+        # kubelet 实际上传过来的是:
+        #     Args: [][2]string{
+        #         {"IgnoreUnknown", "1"},
+        #         {"K8S_POD_NAMESPACE", podNs},
+        #         {"K8S_POD_NAME", podName},
+        #         {"K8S_POD_INFRA_CONTAINER_ID", podInfraContainerID.ID},
+        #     },
+        #
+        #
         self.args = CNIArgs(self.CNI_ARGS)
 
     def __repr__(self):
